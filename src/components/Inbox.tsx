@@ -16,11 +16,9 @@ export default function Inbox() {
   const [activeTab, setActiveTab] = useState<'inbox' | 'outbox'>('inbox');
 
   const loadEmails = useCallback(async () => {
-    if (!userEmail) return;
-
     try {
       setLoading(true);
-      const fetchedEmails = await fetchEmails(userEmail);
+      const fetchedEmails = await fetchEmails();
       setEmails(fetchedEmails.sort((a, b) => b.timestamp - a.timestamp));
     } catch (error) {
       console.error('Failed to load emails:', error);
@@ -28,7 +26,7 @@ export default function Inbox() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userEmail]);
+  }, []);
 
   useEffect(() => {
     loadEmails();
@@ -182,9 +180,7 @@ export default function Inbox() {
                         <h3 className="text-green-300 font-mono font-semibold text-base mb-2 group-hover:text-green-200 transition-colors">
                           {email.subject || '(No Subject)'}
                         </h3>
-                        <p className="text-green-600 font-mono text-sm line-clamp-2">
-                          {email.text || '(No content)'}
-                        </p>
+                        
                       </div>
                       <div className="ml-4 flex flex-col items-end space-y-2">
                         <span className="text-green-500 font-mono text-xs whitespace-nowrap">

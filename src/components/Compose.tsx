@@ -17,6 +17,8 @@ interface Attachment {
 
 export default function Compose({ onBack, onSent }: ComposeProps) {
   const { email: userEmail } = useAuth();
+  const [fromEmail, setFromEmail] = useState(userEmail || '');
+  const [senderName, setSenderName] = useState('Admin');
   const [recipient, setRecipient] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -73,15 +75,16 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
       return;
     }
 
-    if (!userEmail) {
-      setError('User email not found');
+    if (!emailRegex.test(fromEmail)) {
+      setError('Please enter a valid sender email address');
       setSending(false);
       return;
     }
 
     try {
       await sendEmail({
-        sender: userEmail,
+        sender: fromEmail,
+        sname: senderName,
         recipient,
         subject,
         message: useHtml ? undefined : message,
@@ -130,6 +133,34 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <form onSubmit={handleSubmit}>
               <div className="p-6 space-y-6">
+                <div>
+                  <label htmlFor="sname" className="block text-green-500 font-mono text-sm mb-2">
+                    NAME:
+                  </label>
+                  <input
+                    type="text"
+                    id="sname"
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value)}
+                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
+                    placeholder="Sender name"
+                    disabled={sending}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="from" className="block text-green-500 font-mono text-sm mb-2">
+                    FROM:
+                  </label>
+                  <input
+                    type="email"
+                    id="from"
+                    value={fromEmail}
+                    onChange={(e) => setFromEmail(e.target.value)}
+                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
+                    placeholder="sender@example.com"
+                    disabled={sending}
+                  />
+                </div>
                 <div>
                   <label htmlFor="recipient" className="block text-green-500 font-mono text-sm mb-2">
                     TO:

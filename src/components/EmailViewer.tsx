@@ -13,9 +13,10 @@ interface EmailViewerProps {
 export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerProps) {
   const { email: userEmail } = useAuth();
   const [htmlContent, setHtmlContent] = useState<string>('');
+  const [textContent, setTextContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [attachments, setAttachments] = useState<{ index: number; filename: string; contentType: string; size: number }[]>([]);
+  const [attachments, setAttachments] = useState<{ index: number; rid: string; filename: string; contentType: string; size: number }[]>([]);
   const [attLoading, setAttLoading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
 
@@ -24,14 +25,15 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
 
     try {
       setLoading(true);
-      let html = await fetchEmailHtml(userEmail, email.id);
+      const { html, text } = await fetchEmailHtml(userEmail, email.id, email.type);
       const trimmed = html.trim();
+      let source = trimmed;
       if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
         try {
-          html = JSON.parse(trimmed);
-        } catch {}
+          source = String(JSON.parse(trimmed));
+        } catch { /* ignore */ }
       }
-      const sanitized = html
+      const sanitized = source
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
         .replace(/on[a-z]+\s*=\s*"[^"]*"/gi, '')
         .replace(/on[a-z]+\s*=\s*'[^']*'/gi, '')
@@ -40,25 +42,28 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
         .replace(/\n{3,}/g, '\n\n')
         .trim();
       setHtmlContent(sanitized);
+      const tSan = String(text || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      setTextContent(tSan);
     } catch (error) {
       console.error('Failed to load HTML content:', error);
     } finally {
       setLoading(false);
     }
-  }, [userEmail, email.id]);
+  }, [userEmail, email.id, email.type]);
 
   useEffect(() => {
-    if (email.hasHtml) {
-      loadHtmlContent();
-    }
-  }, [email.hasHtml, loadHtmlContent]);
+    loadHtmlContent();
+  }, [loadHtmlContent]);
 
   useEffect(() => {
     const loadAtt = async () => {
-      if (!userEmail || !email.attachments) return;
+      if (!userEmail) return;
       try {
         setAttLoading(true);
-        const metas = await fetchAttachments(userEmail, email.id);
+        const metas = await fetchAttachments(email.id, email.type);
         setAttachments(metas);
       } catch (err) {
         console.error('Failed to load attachments:', err);
@@ -67,21 +72,21 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
       }
     };
     loadAtt();
-  }, [userEmail, email.id, email.attachments]);
+  }, [userEmail, email.id, email.type]);
 
   useEffect(() => {
-    let revoked: string[] = [];
+    const revoked: string[] = [];
     const buildPreviews = async () => {
       if (!userEmail) return;
       const urls: Record<number, string> = {};
       for (const att of attachments) {
         if (att.contentType?.startsWith('image/')) {
           try {
-            const blob = await downloadAttachment(userEmail, email.id, att.index);
+            const blob = await downloadAttachment(email.id, att.rid, email.type);
             const url = URL.createObjectURL(blob);
             urls[att.index] = url;
             revoked.push(url);
-          } catch {}
+          } catch { void 0; }
         }
       }
       setPreviewUrls(urls);
@@ -90,7 +95,7 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
     return () => {
       for (const u of revoked) URL.revokeObjectURL(u);
     };
-  }, [attachments, userEmail, email.id]);
+  }, [attachments, userEmail, email.id, email.type]);
   
 
   const formatDate = (dateString: string) => {
@@ -134,7 +139,7 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                   if (!ok) return;
                   try {
                     setDeleting(true);
-                    await deleteEmail(userEmail, email.id);
+                    await deleteEmail(email.id);
                     onDeleted?.();
                     onBack();
                   } catch (err) {
@@ -165,19 +170,16 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                 </div>
 
                 <div className="space-y-2">
-                  {email.type === 'sent' ? (
-                    <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
-                      <Mail className="w-4 h-4" />
-                      <span className="font-semibold">TO:</span>
-                      <span>{email.to}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
-                      <User className="w-4 h-4" />
-                      <span className="font-semibold">FROM:</span>
-                      <span>{email.from}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
+                    <Mail className="w-4 h-4" />
+                    <span className="font-semibold">TO:</span>
+                    <span>{email.to}</span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
+                    <User className="w-4 h-4" />
+                    <span className="font-semibold">FROM:</span>
+                    <span>{email.from}</span>
+                  </div>
                   <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
                     <Calendar className="w-4 h-4" />
                     <span className="font-semibold">DATE:</span>
@@ -188,35 +190,31 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
               </div>
             </div>
 
-            
-
             <div className="px-6 py-8">
-              {email.hasHtml ? (
-                loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-green-500 font-mono animate-pulse">
-                      LOADING...
-                    </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-green-500 font-mono animate-pulse">
+                    LOADING...
                   </div>
-                ) : (
-                  <div className="bg-white rounded-lg overflow-hidden shadow-lg">
-                    <div
-                      className="p-6"
-                      dangerouslySetInnerHTML={{ __html: htmlContent }}
-                    />
-                  </div>
-                )
+                </div>
+              ) : htmlContent ? (
+                <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                  <div
+                    className="p-6"
+                    dangerouslySetInnerHTML={{ __html: htmlContent }}
+                  />
+                </div>
               ) : (
                 <div className="text-green-400 font-mono whitespace-pre-wrap leading-relaxed">
-                  {email.text || '(No content)'}
+                  {textContent || email.text || '(No content)'}
                 </div>
               )}
-              {email.attachments > 0 && (
+              {(attLoading || attachments.length > 0) && (
                 <div className="mt-6">
                   <div className="flex items-center space-x-3 text-green-400 font-mono text-sm mb-3">
                     <Paperclip className="w-4 h-4" />
                     <span className="font-semibold">ATTACHMENTS</span>
-                    <span className="text-green-600">({email.attachments})</span>
+                    <span className="text-green-600">({attachments.length})</span>
                   </div>
                   {attLoading ? (
                     <div className="text-green-500 font-mono text-sm">LOADING ATTACHMENTS...</div>
@@ -234,7 +232,7 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                             onClick={async () => {
                               if (!userEmail) return;
                               try {
-                                const blob = await downloadAttachment(userEmail, email.id, att.index);
+                                const blob = await downloadAttachment(email.id, att.rid, email.type);
                                 const dl = URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = dl;

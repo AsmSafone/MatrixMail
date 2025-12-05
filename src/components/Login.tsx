@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { Mail } from 'lucide-react';
 import MatrixRain from './MatrixRain';
-import AdminPanel from './AdminPanel';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showAdmin, setShowAdmin] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,9 +32,7 @@ export default function Login() {
     }
   };
 
-  if (showAdmin) {
-    return <AdminPanel onBack={() => setShowAdmin(false)} />;
-  }
+  
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden">
@@ -103,13 +99,7 @@ export default function Login() {
             >
               {loading ? 'ACCESSING...' : 'ENTER'}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowAdmin(true)}
-              className="w-full mt-3 border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-black font-bold py-3 px-4 rounded font-mono transition-all"
-            >
-              OPEN ADMIN PANEL
-            </button>
+            
           </form>
 
           <div className="mt-8 text-center">
