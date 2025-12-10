@@ -61,7 +61,6 @@ export default function Inbox() {
       <EmailViewer
         email={selectedEmail}
         onBack={() => setSelectedEmail(null)}
-        onDeleted={loadEmails}
       />
     );
   }
@@ -129,7 +128,7 @@ export default function Inbox() {
                     }`}
                   >
                     <InboxIcon className="w-4 h-4" />
-                    <span>INBOX ({emails.filter((e) => e.type === 'received').length})</span>
+                    <span>INBOX ({emails.filter((e) => e.type === 'received' && e.to === userEmail).length})</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('outbox')}
@@ -140,7 +139,7 @@ export default function Inbox() {
                     }`}
                   >
                     <Send className="w-4 h-4" />
-                    <span>OUTBOX ({emails.filter((e) => e.type === 'sent').length})</span>
+                    <span>OUTBOX ({emails.filter((e) => e.type === 'sent' && e.from === userEmail).length})</span>
                   </button>
                 </div>
               </div>
@@ -152,7 +151,7 @@ export default function Inbox() {
                   LOADING EMAILS...
                 </div>
               </div>
-            ) : emails.filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent')).length === 0 ? (
+            ) : emails.filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent') && (activeTab === 'inbox' ? e.to === userEmail : e.from === userEmail)).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <Mail className="w-16 h-16 text-green-500/30 mb-4" />
                 <p className="text-green-500 font-mono text-lg">NO EMAILS</p>
@@ -163,7 +162,7 @@ export default function Inbox() {
             ) : (
               <div className="divide-y-2 divide-green-900/30">
                 {emails
-                  .filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent'))
+                  .filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent') && (activeTab === 'inbox' ? e.to === userEmail : e.from === userEmail))
                   .map((email) => (
                   <div
                     key={`${email.id}-${email.type}-${email.to}-${email.from}`}

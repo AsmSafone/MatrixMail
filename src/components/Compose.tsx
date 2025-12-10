@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { sendEmail } from '../lib/api';
-import { ArrowLeft, Send, Paperclip, X } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, X, Trash2 } from 'lucide-react';
 import MatrixRain from './MatrixRain';
 
 interface ComposeProps {
@@ -16,9 +16,9 @@ interface Attachment {
 }
 
 export default function Compose({ onBack, onSent }: ComposeProps) {
-  const { email: userEmail } = useAuth();
-  const [fromEmail, setFromEmail] = useState(userEmail || '');
-  const [senderName, setSenderName] = useState('Admin');
+  const { email: userEmail, name: userName } = useAuth();
+  const fromEmail = userEmail || '';
+  const senderName = userName || 'Admin';
   const [recipient, setRecipient] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -28,6 +28,17 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  const handleClear = () => {
+    setRecipient('');
+    setSubject('');
+    setMessage('');
+    setHtml('');
+    setUseHtml(false);
+    setAttachments([]);
+    setError('');
+    setSuccess(false);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -112,19 +123,29 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
       <div className="relative z-10">
         <header className="bg-black/90 border-b-2 border-green-500 sticky top-0 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={onBack}
-                className="p-2 border-2 border-green-500 text-green-500 rounded hover:bg-green-500 hover:text-black transition-all"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="flex items-center space-x-3">
-                <div>
-                  <h1 className="text-xl font-bold text-green-500 font-mono">COMPOSE EMAIL</h1>
-                  <p className="text-green-400 text-sm font-mono">{userEmail}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={onBack}
+                  className="p-2 border-2 border-green-500 text-green-500 rounded hover:bg-green-500 hover:text-black transition-all"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-center space-x-3">
+                  <div>
+                    <h1 className="text-xl font-bold text-green-500 font-mono">COMPOSE EMAIL</h1>
+                    <p className="text-green-400 text-sm font-mono">{userEmail}</p>
+                  </div>
                 </div>
               </div>
+              <button
+                onClick={handleClear}
+                disabled={sending}
+                className="p-2 border-2 border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-black transition-all disabled:opacity-50"
+                title="Clear"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </header>
@@ -133,34 +154,7 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <form onSubmit={handleSubmit}>
               <div className="p-6 space-y-6">
-                <div>
-                  <label htmlFor="sname" className="block text-green-500 font-mono text-sm mb-2">
-                    NAME:
-                  </label>
-                  <input
-                    type="text"
-                    id="sname"
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
-                    placeholder="Sender name"
-                    disabled={sending}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="from" className="block text-green-500 font-mono text-sm mb-2">
-                    FROM:
-                  </label>
-                  <input
-                    type="email"
-                    id="from"
-                    value={fromEmail}
-                    onChange={(e) => setFromEmail(e.target.value)}
-                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
-                    placeholder="sender@example.com"
-                    disabled={sending}
-                  />
-                </div>
+                
                 <div>
                   <label htmlFor="recipient" className="block text-green-500 font-mono text-sm mb-2">
                     TO:

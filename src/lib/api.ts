@@ -1,14 +1,19 @@
 const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY || '';
+if (!RESEND_API_KEY) throw new Error('Resend API key is not configured');
+
 const API_BASE = 'https://api.resend.com';
 const CORS_PREFIX = 'https://cors.safothebot.workers.dev/';
 const MIN_INTERVAL_MS = 600;
+
 let lastFetchAt = 0;
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
 async function waitForRate() {
   const now = Date.now();
   const wait = Math.max(0, MIN_INTERVAL_MS - (now - lastFetchAt));
   if (wait > 0) await sleep(wait);
 }
+
 function apiFetch(path: string, init?: RequestInit) {
   const headers = {
     Authorization: `Bearer ${RESEND_API_KEY}`,
@@ -49,6 +54,17 @@ function extractArray<T = unknown>(json: unknown): T[] {
   return Array.isArray(da) ? (da as T[]) : [];
 }
 
+function normalizeAddress(value: string): string {
+  const v = String(value || '').trim();
+  const lt = v.indexOf('<');
+  const gt = v.indexOf('>');
+  if (lt !== -1 && gt !== -1 && gt > lt) {
+    return v.slice(lt + 1, gt).trim();
+  }
+  const match = v.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0] : v;
+}
+
 export interface Email {
   id: string;
   from: string;
@@ -82,6 +98,7 @@ export interface AttachmentMeta {
   filename: string;
   contentType: string;
   size: number;
+  downloadUrl?: string;
 }
 
 export async function fetchEmails(): Promise<Email[]> {
@@ -98,9 +115,9 @@ export async function fetchEmails(): Promise<Email[]> {
     if (!item?.id) continue;
     const created = item.created_at || new Date().toISOString();
     const timestamp = new Date(created).getTime();
-    const from = String(item.from || '');
+    const from = normalizeAddress(String(item.from || ''));
     const toArr: string[] = Array.isArray(item.to) ? item.to : [];
-    const to = toArr[0] || '';
+    const to = normalizeAddress(toArr[0] || '');
     results.push({
       id: item.id,
       from,
@@ -123,9 +140,9 @@ export async function fetchEmails(): Promise<Email[]> {
     if (!item?.id) continue;
     const created = item.created_at || new Date().toISOString();
     const timestamp = new Date(created).getTime();
-    const from = String(item.from || '');
+    const from = normalizeAddress(String(item.from || ''));
     const toArr: string[] = Array.isArray(item.to) ? item.to : [];
-    const to = toArr[0] || '';
+    const to = normalizeAddress(toArr[0] || '');
     results.push({
       id: item.id,
       from,
@@ -152,7 +169,6 @@ export async function fetchEmails(): Promise<Email[]> {
 }
 
 export async function fetchEmailHtml(_email: string, id: string, type: 'received' | 'sent'): Promise<{ html: string; text: string }> {
-  if (!RESEND_API_KEY) throw new Error('Resend API key is not configured');
   const url = type === 'sent' ? `/emails/${id}` : `/emails/receiving/${id}`;
   const resp = await apiFetch(url);
   if (!resp.ok) throw new Error('Failed to retrieve email');
@@ -164,38 +180,29 @@ export async function fetchEmailHtml(_email: string, id: string, type: 'received
   return { html, text };
 }
 
-export async function deleteEmail(id: string): Promise<void> {
-  if (!id) return;
-  return;
-}
-
 export async function fetchAttachments(id: string, type: 'received' | 'sent'): Promise<AttachmentMeta[]> {
-  if (!RESEND_API_KEY) throw new Error('Resend API key is not configured');
   const url = type === 'received' ? `/emails/receiving/${id}/attachments` : `/emails/${id}/attachments`;
   const resp = await apiFetch(url);
   if (!resp.ok) throw new Error('Failed to list attachments');
   const j = await resp.json();
-  const list = ((j as unknown) as { data?: { data?: Array<{ id: string; filename?: string; content_type?: string; size?: number }> } }).data?.data || [];
-  return list.map((att, idx) => ({
+  const root = j as Record<string, unknown>;
+  const dataAny = (root?.data as unknown) as unknown;
+  let arr: Array<{ id?: string; filename?: string; content_type?: string; mime_type?: string; size?: number; size_in_bytes?: number; download_url?: string }>= [];
+  if (Array.isArray(dataAny)) {
+    arr = dataAny as typeof arr;
+  } else if (dataAny && Array.isArray((dataAny as { data?: unknown }).data)) {
+    arr = ((dataAny as { data?: unknown }).data as typeof arr) || [];
+  } else if (Array.isArray((root as { attachments?: unknown }).attachments)) {
+    arr = ((root as { attachments?: unknown }).attachments as typeof arr) || [];
+  }
+  return arr.map((att, idx) => ({
     index: idx,
-    rid: String(att.id),
+    rid: String(att.id || idx),
     filename: String(att.filename || ''),
-    contentType: String(att.content_type || 'application/octet-stream'),
-    size: Number(att.size || 0),
+    contentType: String(att.content_type || att.mime_type || 'application/octet-stream'),
+    size: Number(att.size || att.size_in_bytes || 0),
+    downloadUrl: att.download_url ? String(att.download_url) : undefined,
   }));
-}
-
-export async function downloadAttachment(id: string, rid: string, type: 'received' | 'sent'): Promise<Blob> {
-  if (!RESEND_API_KEY) throw new Error('Resend API key is not configured');
-  const url = type === 'received' ? `/emails/receiving/${id}/attachments/${rid}` : `/emails/${id}/attachments/${rid}`;
-  const resp = await apiFetch(url);
-  if (!resp.ok) throw new Error('Failed to retrieve attachment');
-  const meta = await resp.json();
-  const dl = ((meta as unknown) as { data?: { download_url?: string } }).data?.download_url || '';
-  if (!dl) throw new Error('Attachment download url not available');
-  const fileResp = await fetch(CORS_PREFIX + dl);
-  if (!fileResp.ok) throw new Error('Failed to download attachment');
-  return await fileResp.blob();
 }
 
 export async function sendEmail(emailData: SendEmailRequest): Promise<void> {

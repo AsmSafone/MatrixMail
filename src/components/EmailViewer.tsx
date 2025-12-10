@@ -1,22 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/useAuth';
-import { fetchEmailHtml, deleteEmail, fetchAttachments, downloadAttachment, Email } from '../lib/api';
-import { ArrowLeft, Mail, Calendar, User, Trash2, Paperclip, FileText } from 'lucide-react';
+import { fetchEmailHtml, fetchAttachments, Email } from '../lib/api';
+import { ArrowLeft, Mail, Calendar, User, RefreshCw, Paperclip, FileText } from 'lucide-react';
 import MatrixRain from './MatrixRain';
 
 interface EmailViewerProps {
   email: Email;
   onBack: () => void;
-  onDeleted?: () => void;
 }
 
-export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerProps) {
+export default function EmailViewer({ email, onBack }: EmailViewerProps) {
   const { email: userEmail } = useAuth();
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [textContent, setTextContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [attachments, setAttachments] = useState<{ index: number; rid: string; filename: string; contentType: string; size: number }[]>([]);
+  const [attachments, setAttachments] = useState<{ index: number; rid: string; filename: string; contentType: string; size: number; downloadUrl?: string }[]>([]);
   const [attLoading, setAttLoading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
 
@@ -75,27 +73,14 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
   }, [userEmail, email.id, email.type]);
 
   useEffect(() => {
-    const revoked: string[] = [];
-    const buildPreviews = async () => {
-      if (!userEmail) return;
-      const urls: Record<number, string> = {};
-      for (const att of attachments) {
-        if (att.contentType?.startsWith('image/')) {
-          try {
-            const blob = await downloadAttachment(email.id, att.rid, email.type);
-            const url = URL.createObjectURL(blob);
-            urls[att.index] = url;
-            revoked.push(url);
-          } catch { void 0; }
-        }
+    const urls: Record<number, string> = {};
+    for (const att of attachments) {
+      if (att.contentType?.startsWith('image/') && att.downloadUrl) {
+        urls[att.index] = att.downloadUrl;
       }
-      setPreviewUrls(urls);
-    };
-    buildPreviews();
-    return () => {
-      for (const u of revoked) URL.revokeObjectURL(u);
-    };
-  }, [attachments, userEmail, email.id, email.type]);
+    }
+    setPreviewUrls(urls);
+  }, [attachments]);
   
 
   const formatDate = (dateString: string) => {
@@ -134,26 +119,23 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
               </div>
               <button
                 onClick={async () => {
-                  if (!userEmail || deleting) return;
-                  const ok = confirm('Delete this email?');
-                  if (!ok) return;
+                  if (!userEmail) return;
+                  await loadHtmlContent();
                   try {
-                    setDeleting(true);
-                    await deleteEmail(email.id);
-                    onDeleted?.();
-                    onBack();
+                    setAttLoading(true);
+                    const metas = await fetchAttachments(email.id, email.type);
+                    setAttachments(metas);
                   } catch (err) {
-                    console.error(err);
-                    alert((err as Error)?.message || 'Failed to delete email');
+                    console.error('Failed to refresh attachments', err);
                   } finally {
-                    setDeleting(false);
+                    setAttLoading(false);
                   }
                 }}
-                disabled={deleting}
-                className="p-2 border-2 border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-black transition-all disabled:opacity-50"
-                title="Delete"
+                disabled={loading || attLoading}
+                className="p-2 border-2 border-green-500 text-green-500 rounded hover:bg-green-500 hover:text-black transition-all disabled:opacity-50"
+                title="Refresh"
               >
-                <Trash2 className="w-5 h-5" />
+                <RefreshCw className={`w-5 h-5 ${loading || attLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
@@ -170,16 +152,19 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
-                    <Mail className="w-4 h-4" />
-                    <span className="font-semibold">TO:</span>
-                    <span>{email.to}</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
-                    <User className="w-4 h-4" />
-                    <span className="font-semibold">FROM:</span>
-                    <span>{email.from}</span>
-                  </div>
+                  {email.type === 'sent' ? (
+                    <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
+                      <Mail className="w-4 h-4" />
+                      <span className="font-semibold">TO:</span>
+                      <span>{email.to}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
+                      <User className="w-4 h-4" />
+                      <span className="font-semibold">FROM:</span>
+                      <span>{email.from}</span>
+                    </div>
+                  )}
                   <div className="flex items-center space-x-3 text-green-400 font-mono text-sm">
                     <Calendar className="w-4 h-4" />
                     <span className="font-semibold">DATE:</span>
@@ -209,7 +194,7 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                   {textContent || email.text || '(No content)'}
                 </div>
               )}
-              {(attLoading || attachments.length > 0) && (
+              {!loading && (attLoading || attachments.length > 0) && (
                 <div className="mt-6">
                   <div className="flex items-center space-x-3 text-green-400 font-mono text-sm mb-3">
                     <Paperclip className="w-4 h-4" />
@@ -229,22 +214,12 @@ export default function EmailViewer({ email, onBack, onDeleted }: EmailViewerPro
                           <button
                             key={att.index}
                             className="group relative border border-green-500/50 rounded overflow-hidden bg-green-900/20 hover:border-green-500 transition-all"
-                            onClick={async () => {
-                              if (!userEmail) return;
-                              try {
-                                const blob = await downloadAttachment(email.id, att.rid, email.type);
-                                const dl = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = dl;
-                                a.download = att.filename;
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                                URL.revokeObjectURL(dl);
-                              } catch (err) {
-                                console.error(err);
-                                alert('Failed to download attachment');
+                            onClick={() => {
+                              if (!att.downloadUrl) {
+                                alert('Download link not available');
+                                return;
                               }
+                              window.open(att.downloadUrl, '_blank');
                             }}
                             title={att.filename}
                           >

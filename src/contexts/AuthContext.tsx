@@ -1,22 +1,53 @@
-import { useState, ReactNode } from 'react';
-import { loginUser } from '../lib/api';
+import { useEffect, useState, ReactNode } from 'react';
 import { AuthContext } from './useAuth';
 
+const USERS = [
+  { name: 'Admin', email: 'admin@example.com', password: 'admin123' },
+  { name: 'Alice', email: 'alice@example.com', password: 'alice123' },
+  { name: 'Bob', email: 'bob@example.com', password: 'bob123' },
+];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const loading = false;
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('matrix_user');
+      if (raw) {
+        const data = JSON.parse(raw) as { name?: string; email?: string };
+        if (data?.email) {
+          setEmail(String(data.email));
+          setName(data?.name ? String(data.name) : null);
+        }
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
 
   const login = async (emailAddress: string, password: string) => {
-    await loginUser(emailAddress, password);
-    setEmail(emailAddress);
+    const user = USERS.find((u) => u.email === emailAddress && u.password === password);
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+    setEmail(user.email);
+    setName(user.name);
+    try {
+      localStorage.setItem('matrix_user', JSON.stringify({ name: user.name, email: user.email }));
+    } catch { /* ignore */ }
   };
 
   const logout = async () => {
     setEmail(null);
+    setName(null);
+    try {
+      localStorage.removeItem('matrix_user');
+    } catch { /* ignore */ }
   };
 
   return (
-    <AuthContext.Provider value={{ email, loading, login, logout }}>
+    <AuthContext.Provider value={{ name, email, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
