@@ -181,7 +181,7 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
-                    placeholder="Email subject"
+                    placeholder="Email subject here"
                     required
                     disabled={sending}
                   />

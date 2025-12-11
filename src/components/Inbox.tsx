@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/useAuth';
-import { fetchEmails, Email } from '../lib/api';
-import { Mail, RefreshCw, LogOut, Send, Inbox as InboxIcon } from 'lucide-react';
+import { fetchEmails, Email, fetchEmailHtml, fetchAttachments } from '../lib/api';
+import { Mail, RefreshCw, LogOut, Send, Inbox as InboxIcon, Search, Star, Square, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import MatrixRain from './MatrixRain';
 import EmailViewer from './EmailViewer';
 import Compose from './Compose';
@@ -13,7 +13,16 @@ export default function Inbox() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbox' | 'outbox'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'outbox' | 'starred'>('inbox');
+  const [query, setQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [metaById, setMetaById] = useState<Record<string, { hasHtml: boolean; attachments: number }>>({});
+  const [initStarLoaded, setInitStarLoaded] = useState(false);
+  const [initReadLoaded, setInitReadLoaded] = useState(false);
 
   const loadEmails = useCallback(async () => {
     try {
@@ -37,6 +46,107 @@ export default function Inbox() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadEmails();
+  };
+
+  useEffect(() => {
+    if (!userEmail) return;
+    try {
+      const raw = localStorage.getItem(`matrix_starred_${userEmail}`);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        setStarredIds(new Set(arr));
+      }
+    } catch { /* ignore */ }
+    setInitStarLoaded(true);
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (!userEmail || !initStarLoaded) return;
+    try {
+      localStorage.setItem(`matrix_starred_${userEmail}`, JSON.stringify(Array.from(starredIds)));
+    } catch { /* ignore */ }
+  }, [starredIds, userEmail, initStarLoaded]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    try {
+      const raw = localStorage.getItem(`matrix_read_${userEmail}`);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        setReadIds(new Set(arr));
+      }
+    } catch { /* ignore */ }
+    setInitReadLoaded(true);
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (!userEmail || !initReadLoaded) return;
+    try {
+      localStorage.setItem(`matrix_read_${userEmail}`, JSON.stringify(Array.from(readIds)));
+    } catch { /* ignore */ }
+  }, [readIds, userEmail, initReadLoaded]);
+
+  const filtered = emails
+    .filter((e) => {
+      if (activeTab === 'inbox') return e.type === 'received' && e.to === userEmail;
+      if (activeTab === 'outbox') return e.type === 'sent' && e.from === userEmail;
+      return starredIds.has(e.id) && (e.to === userEmail || e.from === userEmail);
+    })
+    .filter((e) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        (e.subject || '').toLowerCase().includes(q) ||
+        (e.from || '').toLowerCase().includes(q) ||
+        (e.to || '').toLowerCase().includes(q)
+      );
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const tasks = paged.map(async (email) => {
+        if (metaById[email.id]) return;
+        try {
+          const [htmlRes, att] = await Promise.all([
+            fetchEmailHtml(userEmail || '', email.id, email.type),
+            fetchAttachments(email.id, email.type),
+          ]);
+          const next = { hasHtml: !!htmlRes.html, attachments: att.length };
+          if (!cancelled) {
+            setMetaById((prev) => ({ ...prev, [email.id]: next }));
+          }
+        } catch { void 0; }
+      });
+      await Promise.allSettled(tasks);
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [paged, userEmail, metaById]);
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const toggleStar = (id: string) => {
+    const next = new Set(starredIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setStarredIds(next);
+  };
+
+  const markRead = (read: boolean) => {
+    const next = new Set(readIds);
+    for (const id of selectedIds) {
+      if (read) next.add(id); else next.delete(id);
+    }
+    setReadIds(next);
+    setSelectedIds(new Set());
   };
 
   const formatDate = (dateString: string) => {
@@ -117,7 +227,7 @@ export default function Inbox() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <div className="bg-green-500/10 border-b-2 border-green-500 px-6 py-4">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setActiveTab('inbox')}
@@ -141,6 +251,44 @@ export default function Inbox() {
                     <Send className="w-4 h-4" />
                     <span>OUTBOX ({emails.filter((e) => e.type === 'sent' && e.from === userEmail).length})</span>
                   </button>
+                  <button
+                    onClick={() => setActiveTab('starred')}
+                    className={`px-4 py-2 text-sm font-mono rounded inline-flex items-center space-x-2 ${
+                      activeTab === 'starred'
+                        ? 'bg-green-500 text.black border-2 border-green-500'
+                        : 'text-green-500 border-2 border-green-500 hover:bg-green-500/10'
+                    }`}
+                  >
+                    <Star className="w-4 h-4" />
+                    <span>STARRED ({Array.from(starredIds).length})</span>
+                  </button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-green-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      value={query}
+                      onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+                      className="pl-9 pr-3 py-2 bg-black border-2 border-green-500 rounded text-green-400 font-mono text-sm focus:outline-none focus:border-green-300"
+                      placeholder="Search"
+                    />
+                  </div>
+                  <button
+                    onClick={() => markRead(true)}
+                    disabled={selectedIds.size === 0}
+                    className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs disabled:opacity-50"
+                    title="Mark as read"
+                  >
+                    READ
+                  </button>
+                  <button
+                    onClick={() => markRead(false)}
+                    disabled={selectedIds.size === 0}
+                    className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs disabled:opacity-50"
+                    title="Mark as unread"
+                  >
+                    UNREAD
+                  </button>
                 </div>
               </div>
             </div>
@@ -151,19 +299,18 @@ export default function Inbox() {
                   LOADING EMAILS...
                 </div>
               </div>
-            ) : emails.filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent') && (activeTab === 'inbox' ? e.to === userEmail : e.from === userEmail)).length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <Mail className="w-16 h-16 text-green-500/30 mb-4" />
                 <p className="text-green-500 font-mono text-lg">NO EMAILS</p>
                 <p className="text-green-600 font-mono text-sm mt-2">
-                  Your {activeTab === 'inbox' ? 'inbox' : 'outbox'} is empty
+                  Your {activeTab === 'inbox' ? 'inbox' : activeTab === 'outbox' ? 'outbox' : 'starred'} is empty
                 </p>
               </div>
             ) : (
-              <div className="divide-y-2 divide-green-900/30">
-                {emails
-                  .filter((e) => e.type === (activeTab === 'inbox' ? 'received' : 'sent') && (activeTab === 'inbox' ? e.to === userEmail : e.from === userEmail))
-                  .map((email) => (
+              <div>
+                <div className="divide-y-2 divide-green-900/30">
+                  {paged.map((email) => (
                   <div
                     key={`${email.id}-${email.type}-${email.to}-${email.from}`}
                     onClick={() => setSelectedEmail(email)}
@@ -182,23 +329,76 @@ export default function Inbox() {
                         
                       </div>
                       <div className="ml-4 flex flex-col items-end space-y-2">
-                        <span className="text-green-500 font-mono text-xs whitespace-nowrap">
-                          {formatDate(email.date)}
-                        </span>
-                        {email.hasHtml && (
-                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
-                            HTML
+                        <div className="flex items-center space-x-2">
+                          <span className="text-green-500 font-mono text-xs whitespace-nowrap">
+                            {formatDate(email.date)}
                           </span>
-                        )}
-                        {email.attachments > 0 && (
-                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
-                            ATTACHMENT
-                          </span>
-                        )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {!selectedIds.has(email.id) && !readIds.has(email.id) && (
+                            <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
+                              UNREAD
+                            </span>
+                          )}
+                          {!selectedIds.has(email.id) && ((metaById[email.id]?.hasHtml) || email.hasHtml) && (
+                            <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
+                              HTML
+                            </span>
+                          )}
+                          {!selectedIds.has(email.id) && ((metaById[email.id]?.attachments ?? email.attachments) > 0) && (
+                            <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
+                              ATTACHMENT
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleSelect(email.id); }}
+                            className={`h-6 w-6 flex items-center justify-center rounded border ${selectedIds.has(email.id) ? 'border-green-500 bg-green-900/30' : 'border-green-700 bg-black'} hover:bg-green-900/30`}
+                            title={selectedIds.has(email.id) ? 'Deselect' : 'Select'}
+                          >
+                            {selectedIds.has(email.id) ? (
+                              <CheckSquare className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Square className="w-4 h-4 text-green-500" />
+                            )}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleStar(email.id); }}
+                            className="p-1 rounded border border-green-700 hover:bg-green-900/30"
+                            title={starredIds.has(email.id) ? 'Unstar' : 'Star'}
+                          >
+                            {starredIds.has(email.id) ? (
+                              <Star className="w-4 h-4 text-green-500" fill="currentColor" />
+                            ) : (
+                              <Star className="w-4 h-4 text-green-500" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
+                </div>
+                <div className="flex items-center justify-between px-6 py-3 border-t border-green-900/30 bg-black/40">
+                <div className="text-green-500 font-mono text-xs">Page {currentPage} of {totalPages}</div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setPage(Math.max(1, currentPage - 1))}
+                    className="p-2 border-2 border-green-500 text-green-500 rounded hover:bg-green-500/10 disabled:opacity-50"
+                    disabled={currentPage <= 1}
+                    title="Previous"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                    className="p-2 border-2 border-green-500 text-green-500 rounded hover:bg-green-500/10 disabled:opacity-50"
+                    disabled={currentPage >= totalPages}
+                    title="Next"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               </div>
             )}
           </div>

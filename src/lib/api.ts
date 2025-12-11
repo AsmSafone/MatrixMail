@@ -102,9 +102,6 @@ export interface AttachmentMeta {
 }
 
 export async function fetchEmails(): Promise<Email[]> {
-  if (!RESEND_API_KEY) {
-    throw new Error('Resend API key is not configured');
-  }
   const results: Email[] = [];
 
   const listSentResp = await apiFetch('/emails?limit=50');
@@ -206,9 +203,6 @@ export async function fetchAttachments(id: string, type: 'received' | 'sent'): P
 }
 
 export async function sendEmail(emailData: SendEmailRequest): Promise<void> {
-  if (!RESEND_API_KEY) {
-    throw new Error('Resend API key is not configured');
-  }
   const fromHeader = emailData.sname ? `${emailData.sname} <${emailData.sender}>` : emailData.sender;
   const payload = {
     from: fromHeader,
@@ -226,14 +220,3 @@ export async function sendEmail(emailData: SendEmailRequest): Promise<void> {
   }
 }
 
-// registration disabled
-
-export async function loginUser(email: string, password: string): Promise<{ token: string; expiresIn: number }> {
-  if (!email || !password) {
-    throw new Error('Email and password are required');
-  }
-  if (email === 'admin@example.com' && password === 'admin123') {
-    return { token: 'admin-token', expiresIn: 3600 };
-  }
-  throw new Error('Invalid credentials');
-}

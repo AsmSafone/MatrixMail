@@ -2,9 +2,10 @@ import { useEffect, useState, ReactNode } from 'react';
 import { AuthContext } from './useAuth';
 
 const USERS = [
-  { name: 'Admin', email: 'admin@example.com', password: 'admin123' },
-  { name: 'Alice', email: 'alice@example.com', password: 'alice123' },
-  { name: 'Bob', email: 'bob@example.com', password: 'bob123' },
+  { name: 'Admin', email: 'admin@example.com', password: 'AdminPassword123!' },
+  { name: 'Support Team', email: 'support@example.com', password: 'SupportPassword123!' },
+  { name: 'Event Updates', email: 'events@example.com', password: 'EventsPassword123!' },
+  { name: 'Demo User', email: 'demo@example.com', password: 'DemoPassword123!' }
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {

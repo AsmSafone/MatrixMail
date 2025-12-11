@@ -15,15 +15,21 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    let finalEmail = email;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
-      setLoading(false);
-      return;
+      // if no @ is present, auto-append @programmingclubustc.org
+      if (email && !email.includes('@')) {
+        finalEmail = email + '@programmingclubustc.org';
+      } else {
+        setError('Please enter a valid email address');
+        setLoading(false);
+        return;
+      }
     }
 
     try {
-      await login(email, password);
+      await login(finalEmail, password);
     } catch (err) {
       setError((err as Error)?.message || 'Failed to login. Please try again.');
       console.error(err);
@@ -59,7 +65,7 @@ export default function Login() {
                 EMAIL ADDRESS
               </label>
               <input
-                type="email"
+                type="text"
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
