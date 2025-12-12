@@ -194,50 +194,44 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
                   {textContent || email.text || '(No content)'}
                 </div>
               )}
-              {!loading && (attLoading || attachments.length > 0) && (
+              {!loading && attachments.length > 0 && (
                 <div className="mt-6">
                   <div className="flex items-center space-x-3 text-green-400 font-mono text-sm mb-3">
                     <Paperclip className="w-4 h-4" />
                     <span className="font-semibold">ATTACHMENTS</span>
                     <span className="text-green-600">({attachments.length})</span>
                   </div>
-                  {attLoading ? (
-                    <div className="text-green-500 font-mono text-sm">LOADING ATTACHMENTS...</div>
-                  ) : attachments.length === 0 ? (
-                    <div className="text-green-600 font-mono text-sm">No attachment metadata</div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {attachments.map((att) => {
-                        const isImage = att.contentType?.startsWith('image/');
-                        const url = previewUrls[att.index];
-                        return (
-                          <button
-                            key={att.index}
-                            className="group relative border border-green-500/50 rounded overflow-hidden bg-green-900/20 hover:border-green-500 transition-all"
-                            onClick={() => {
-                              if (!att.downloadUrl) {
-                                alert('Download link not available');
-                                return;
-                              }
-                              window.open(att.downloadUrl, '_blank');
-                            }}
-                            title={att.filename}
-                          >
-                            {isImage && url ? (
-                              <img src={url} alt={att.filename} className="aspect-square w-full object-cover" />
-                            ) : (
-                              <div className="aspect-square w-full flex items-center justify-center">
-                                <FileText className="w-10 h-10 text-green-500" />
-                              </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-xs font-mono text-green-300 truncate">
-                              {att.filename}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {attachments.map((att) => {
+                      const isImage = att.contentType?.startsWith('image/');
+                      const url = previewUrls[att.index];
+                      return (
+                        <button
+                          key={att.index}
+                          className="group relative border border-green-500/50 rounded overflow-hidden bg-green-900/20 hover:border-green-500 transition-all"
+                          onClick={() => {
+                            if (!att.downloadUrl) {
+                              alert('Download link not available');
+                              return;
+                            }
+                            window.open(att.downloadUrl, '_blank');
+                          }}
+                          title={att.filename}
+                        >
+                          {isImage && url ? (
+                            <img src={url} alt={att.filename} className="aspect-square w-full object-cover" />
+                          ) : (
+                            <div className="aspect-square w-full flex items-center justify-center">
+                              <FileText className="w-10 h-10 text-green-500" />
                             </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-xs font-mono text-green-300 truncate">
+                            {att.filename}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

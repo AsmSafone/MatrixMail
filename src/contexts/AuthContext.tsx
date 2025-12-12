@@ -1,12 +1,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { AuthContext } from './useAuth';
 
-const USERS = [
-  { name: 'Admin', email: 'admin@example.com', password: 'AdminPassword123!' },
-  { name: 'Support Team', email: 'support@example.com', password: 'SupportPassword123!' },
-  { name: 'Event Updates', email: 'events@example.com', password: 'EventsPassword123!' },
-  { name: 'Demo User', email: 'demo@example.com', password: 'DemoPassword123!' }
-];
+const CORS_PREFIX = 'https://cors.safothebot.workers.dev';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState<string | null>(null);
@@ -28,14 +23,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (emailAddress: string, password: string) => {
-    const user = USERS.find((u) => u.email === emailAddress && u.password === password);
-    if (!user) {
-      throw new Error('Invalid credentials');
+    const resp = await fetch(`${CORS_PREFIX}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailAddress, password }),
+    });
+    const data = await resp.json().catch(() => ({} as unknown));
+    if (!resp.ok) {
+      const msg = (data as { error?: string })?.error || 'Invalid credentials';
+      throw new Error(msg);
     }
-    setEmail(user.email);
-    setName(user.name);
+    const access = (data as { access_token?: string })?.access_token;
+    const user = (data as { user?: { name?: string; email?: string } })?.user;
+    if (!access || !user?.email) {
+      throw new Error('Invalid response');
+    }
+    setEmail(String(user.email));
+    setName(user?.name ? String(user.name) : null);
     try {
-      localStorage.setItem('matrix_user', JSON.stringify({ name: user.name, email: user.email }));
+      localStorage.setItem('access_token', String(access));
+      localStorage.setItem('matrix_user', JSON.stringify({ name: user?.name || null, email: user.email }));
     } catch { /* ignore */ }
   };
 
@@ -44,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setName(null);
     try {
       localStorage.removeItem('matrix_user');
+      localStorage.removeItem('access_token');
     } catch { /* ignore */ }
   };
 

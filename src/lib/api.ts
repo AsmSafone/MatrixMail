@@ -1,6 +1,3 @@
-const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY || '';
-if (!RESEND_API_KEY) throw new Error('Resend API key is not configured');
-
 const API_BASE = 'https://api.resend.com';
 const CORS_PREFIX = 'https://cors.safothebot.workers.dev/';
 const MIN_INTERVAL_MS = 600;
@@ -16,7 +13,7 @@ async function waitForRate() {
 
 function apiFetch(path: string, init?: RequestInit) {
   const headers = {
-    Authorization: `Bearer ${RESEND_API_KEY}`,
+    // Authorization: `Bearer ${RESEND_API_KEY}`,
     'Content-Type': (init?.method === 'POST' ? 'application/json' : undefined) as string | undefined,
     ...(init?.headers || {}),
   } as Record<string, string>;
