@@ -102,7 +102,7 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
       <div className="relative z-10">
         <header className="bg-black/90 border-b-2 border-green-500 sticky top-0 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={onBack}
@@ -185,7 +185,7 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
               ) : htmlContent ? (
                 <div className="bg-white rounded-lg overflow-hidden shadow-lg">
                   <div
-                    className="p-6"
+                    className="p-6 email-html"
                     dangerouslySetInnerHTML={{ __html: htmlContent }}
                   />
                 </div>
@@ -238,7 +238,7 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
           </div>
         </main>
       </div>
-      <div className="fixed bottom-4 left-0 right-0 text-center z-10">
+      <div className="fixed bottom-4 left-0 right-0 text-center z-10 hidden sm:block">
         <p className="text-green-600 text-xs font-mono">© {new Date().getFullYear()} Safone, All Rights Reserved.</p>
       </div>
     </div>

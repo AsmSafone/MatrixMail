@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.email-html img,
+.email-html video,
+.email-html canvas,
+.email-html svg {
+  max-width: 100%;
+  height: auto;
+}
+.email-html table {
+  width: 100%;
+  max-width: 100%;
+}
+.email-html pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.email-html iframe,
+.email-html embed {
+  max-width: 100%;
+}

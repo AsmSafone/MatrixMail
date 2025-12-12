@@ -186,7 +186,7 @@ export default function Inbox() {
       <div className="relative z-10">
         <header className="bg-black/90 border-b-2 border-green-500 sticky top-0 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center space-x-4">
                 <div className="w-10 h-10 border-2 border-green-500 rounded-full flex items-center justify-center">
                   <Mail className="w-5 h-5 text-green-500" />
@@ -196,7 +196,7 @@ export default function Inbox() {
                   <p className="text-green-400 text-sm font-mono">{userEmail}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
@@ -227,8 +227,8 @@ export default function Inbox() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <div className="bg-green-500/10 border-b-2 border-green-500 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setActiveTab('inbox')}
                     className={`px-4 py-2 text-sm font-mono rounded inline-flex items-center space-x-2 ${
@@ -255,7 +255,7 @@ export default function Inbox() {
                     onClick={() => setActiveTab('starred')}
                     className={`px-4 py-2 text-sm font-mono rounded inline-flex items-center space-x-2 ${
                       activeTab === 'starred'
-                        ? 'bg-green-500 text.black border-2 border-green-500'
+                        ? 'bg-green-500 text-black border-2 border-green-500'
                         : 'text-green-500 border-2 border-green-500 hover:bg-green-500/10'
                     }`}
                   >
@@ -263,13 +263,13 @@ export default function Inbox() {
                     <span>STARRED ({Array.from(starredIds).length})</span>
                   </button>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
                   <div className="relative">
                     <Search className="w-4 h-4 text-green-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       value={query}
                       onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-                      className="pl-9 pr-3 py-2 bg-black border-2 border-green-500 rounded text-green-400 font-mono text-sm focus:outline-none focus:border-green-300"
+                      className="w-full md:w-64 pl-9 pr-3 py-2 bg-black border-2 border-green-500 rounded text-green-400 font-mono text-sm focus:outline-none focus:border-green-300"
                       placeholder="Search"
                     />
                   </div>
@@ -316,7 +316,7 @@ export default function Inbox() {
                     onClick={() => setSelectedEmail(email)}
                     className="px-6 py-4 hover:bg-green-500/5 cursor-pointer transition-all border-l-4 border-transparent hover:border-green-500 group"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3 mb-2">
                           <span className="text-green-400 font-mono text-sm font-semibold truncate">
@@ -328,7 +328,7 @@ export default function Inbox() {
                         </h3>
                         
                       </div>
-                      <div className="ml-4 flex flex-col items-end space-y-2">
+                      <div className="sm:ml-4 mt-2 sm:mt-0 flex items-start sm:items-end sm:flex-col gap-2">
                         <div className="flex items-center space-x-2">
                           <span className="text-green-500 font-mono text-xs whitespace-nowrap">
                             {formatDate(email.date)}
@@ -404,7 +404,7 @@ export default function Inbox() {
           </div>
         </main>
       </div>
-      <div className="fixed bottom-4 left-0 right-0 text-center z-10">
+      <div className="fixed bottom-4 left-0 right-0 text-center z-10 hidden sm:block">
         <p className="text-green-600 text-xs font-mono">© {new Date().getFullYear()} Safone, All Rights Reserved.</p>
       </div>
     </div>

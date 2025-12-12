@@ -123,7 +123,7 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
       <div className="relative z-10">
         <header className="bg-black/90 border-b-2 border-green-500 sticky top-0 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={onBack}
