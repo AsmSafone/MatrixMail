@@ -116,6 +116,18 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
     }
   };
 
+  const toggleEditor = () => {
+    setUseHtml((prev) => {
+      const next = !prev;
+      if (next) {
+        setMessage('');
+      } else {
+        setHtml('');
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       <MatrixRain />
@@ -150,7 +162,7 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <form onSubmit={handleSubmit}>
               <div className="p-6 space-y-6">
@@ -194,7 +206,7 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setUseHtml(!useHtml)}
+                      onClick={toggleEditor}
                       className="px-3 py-1 border border-green-500 text-green-500 rounded font-mono text-xs hover:bg-green-500 hover:text-black transition-all"
                     >
                       {useHtml ? 'SWITCH TO TEXT' : 'SWITCH TO HTML'}

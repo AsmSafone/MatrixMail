@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { fetchEmails, Email, fetchEmailHtml, fetchAttachments } from '../lib/api';
-import { Mail, RefreshCw, LogOut, Send, Inbox as InboxIcon, Search, Star, Square, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Mail, RefreshCw, LogOut, Send, Inbox as InboxIcon, Search, Star, Square, CheckSquare, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import MatrixRain from './MatrixRain';
 import EmailViewer from './EmailViewer';
 import Compose from './Compose';
 
 export default function Inbox() {
-  const { email: userEmail, logout, changePassword } = useAuth();
+  const { name: userName, email: userEmail, logout, changePassword } = useAuth();
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
@@ -219,9 +219,10 @@ export default function Inbox() {
                 </button>
                 <button
                   onClick={() => { setShowChangePass(true); setCurrentPass(''); setNewPass(''); setChangeError(''); }}
-                  className="px-4 py-2 border border-green-500 text-green-500 rounded font-mono hover:bg-green-500/10 transition-all"
+                  className="px-4 py-2 border border-green-500 text-green-500 rounded font-mono hover:bg-green-500/10 transition-all flex items-center space-x-2"
                 >
-                  CHANGE PASS
+                  <User className="w-4 h-4" />
+                  <span>PROFILE</span>
                 </button>
                 <button
                   onClick={logout}
@@ -324,7 +325,14 @@ export default function Inbox() {
                   {paged.map((email) => (
                   <div
                     key={`${email.id}-${email.type}-${email.to}-${email.from}`}
-                    onClick={() => setSelectedEmail(email)}
+                    onClick={() => {
+                      setSelectedEmail(email);
+                      setReadIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(email.id);
+                        return next;
+                      });
+                    }}
                     className="px-6 py-4 hover:bg-green-500/5 cursor-pointer transition-all border-l-4 border-transparent hover:border-green-500 group"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -418,7 +426,18 @@ export default function Inbox() {
       {showChangePass && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/70">
           <div className="w-full max-w-sm bg-black border-2 border-green-500 rounded-lg p-6 shadow-[0_0_30px_rgba(0,255,0,0.3)]">
-            <h2 className="text-green-500 font-mono font-bold text-lg mb-4">CHANGE PASSWORD</h2>
+            <h2 className="text-green-500 font-mono font-bold text-lg mb-4">USER PROFILE</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-green-500 font-mono text-xs mb-2">USER NAME</label>
+                <p className="w-full bg-black border-2 border-green-500 text-green-400 px-3 py-2 rounded font-mono">{userName}</p>
+              </div>
+              <div>
+                <label className="block text-green-500 font-mono text-xs mb-2">USER EMAIL</label>
+                <p className="w-full bg-black border-2 border-green-500 text-green-400 px-3 py-2 rounded font-mono">{userEmail}</p>
+              </div>
+            </div>
+            <h2 className="text-green-500 font-mono font-bold text-lg mb-4 mt-8">CHANGE PASSWORD</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-green-500 font-mono text-xs mb-2">CURRENT PASSWORD</label>

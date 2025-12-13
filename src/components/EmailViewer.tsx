@@ -141,7 +141,7 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-black/80 border-2 border-green-500 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,255,0,0.2)]">
             <div className="bg-green-500/10 border-b-2 border-green-500 px-6 py-6">
               <div className="space-y-4">
