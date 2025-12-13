@@ -238,9 +238,6 @@ export default function EmailViewer({ email, onBack }: EmailViewerProps) {
           </div>
         </main>
       </div>
-      <div className="fixed bottom-4 left-0 right-0 text-center z-10 hidden sm:block">
-        <p className="text-green-600 text-xs font-mono">© {new Date().getFullYear()} Safone, All Rights Reserved.</p>
-      </div>
     </div>
   );
 }

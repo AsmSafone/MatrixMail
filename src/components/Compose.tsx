@@ -20,6 +20,8 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
   const fromEmail = userEmail || '';
   const senderName = userName || 'Admin';
   const [recipient, setRecipient] = useState('');
+  const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [html, setHtml] = useState('');
@@ -31,6 +33,8 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
 
   const handleClear = () => {
     setRecipient('');
+    setCc('');
+    setBcc('');
     setSubject('');
     setMessage('');
     setHtml('');
@@ -80,8 +84,26 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
     setSending(true);
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(recipient)) {
-      setError('Please enter a valid recipient email address');
+    const parseEmails = (input: string) =>
+      input
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    const toArr = parseEmails(recipient);
+    const ccArr = parseEmails(cc);
+    const bccArr = parseEmails(bcc);
+    if (toArr.length === 0 || toArr.some((addr) => !emailRegex.test(addr))) {
+      setError('Please enter valid TO addresses');
+      setSending(false);
+      return;
+    }
+    if (ccArr.some((addr) => !emailRegex.test(addr))) {
+      setError('Please enter valid CC addresses');
+      setSending(false);
+      return;
+    }
+    if (bccArr.some((addr) => !emailRegex.test(addr))) {
+      setError('Please enter valid BCC addresses');
       setSending(false);
       return;
     }
@@ -96,7 +118,9 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
       await sendEmail({
         sender: fromEmail,
         sname: senderName,
-        recipient,
+        to: toArr,
+        cc: ccArr.length ? ccArr : undefined,
+        bcc: bccArr.length ? bccArr : undefined,
         subject,
         message: useHtml ? undefined : message,
         html: useHtml ? html : undefined,
@@ -172,17 +196,46 @@ export default function Compose({ onBack, onSent }: ComposeProps) {
                     TO:
                   </label>
                   <input
-                    type="email"
+                    type="text"
                     id="recipient"
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
                     className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
-                    placeholder="recipient@example.com"
+                    placeholder="recipient@example.com, other@example.com"
                     required
                     disabled={sending}
                   />
                 </div>
 
+                <div>
+                  <label htmlFor="cc" className="block text-green-500 font-mono text-sm mb-2">
+                    CC:
+                  </label>
+                  <input
+                    type="text"
+                    id="cc"
+                    value={cc}
+                    onChange={(e) => setCc(e.target.value)}
+                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
+                    placeholder="optional: cc1@example.com, cc2@example.com"
+                    disabled={sending}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bcc" className="block text-green-500 font-mono text-sm mb-2">
+                    BCC:
+                  </label>
+                  <input
+                    type="text"
+                    id="bcc"
+                    value={bcc}
+                    onChange={(e) => setBcc(e.target.value)}
+                    className="w-full bg-black border-2 border-green-500 text-green-400 px-4 py-2 rounded font-mono focus:outline-none focus:border-green-300 focus:shadow-[0_0_10px_rgba(0,255,0,0.3)]"
+                    placeholder="optional: bcc1@example.com"
+                    disabled={sending}
+                  />
+                </div>
                 <div>
                   <label htmlFor="subject" className="block text-green-500 font-mono text-sm mb-2">
                     SUBJECT:

@@ -78,7 +78,9 @@ export interface Email {
 export interface SendEmailRequest {
   sname?: string;
   sender: string;
-  recipient: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
   subject: string;
   message?: string;
   html?: string;
@@ -203,7 +205,9 @@ export async function sendEmail(emailData: SendEmailRequest): Promise<void> {
   const fromHeader = emailData.sname ? `${emailData.sname} <${emailData.sender}>` : emailData.sender;
   const payload = {
     from: fromHeader,
-    to: [emailData.recipient],
+    to: emailData.to,
+    cc: emailData.cc,
+    bcc: emailData.bcc,
     subject: emailData.subject,
     html: emailData.html,
     text: emailData.message,

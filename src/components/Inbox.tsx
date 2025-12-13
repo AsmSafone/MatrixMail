@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/useAuth';
-import { fetchEmails, Email, fetchEmailHtml, fetchAttachments } from '../lib/api';
+import { fetchEmails, Email } from '../lib/api';
 import { Mail, RefreshCw, LogOut, Send, Inbox as InboxIcon, Search, Star, Square, CheckSquare, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import MatrixRain from './MatrixRain';
 import EmailViewer from './EmailViewer';
@@ -24,8 +24,7 @@ export default function Inbox() {
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
-  const pageSize = 20;
-  const [metaById, setMetaById] = useState<Record<string, { hasHtml: boolean; attachments: number }>>({});
+  const pageSize = 10;
   const [initStarLoaded, setInitStarLoaded] = useState(false);
   const [initReadLoaded, setInitReadLoaded] = useState(false);
 
@@ -111,27 +110,7 @@ export default function Inbox() {
   const currentPage = Math.min(page, totalPages);
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const tasks = paged.map(async (email) => {
-        if (metaById[email.id]) return;
-        try {
-          const [htmlRes, att] = await Promise.all([
-            fetchEmailHtml(userEmail || '', email.id, email.type),
-            fetchAttachments(email.id, email.type),
-          ]);
-          const next = { hasHtml: !!htmlRes.html, attachments: att.length };
-          if (!cancelled) {
-            setMetaById((prev) => ({ ...prev, [email.id]: next }));
-          }
-        } catch { void 0; }
-      });
-      await Promise.allSettled(tasks);
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [paged, userEmail, metaById]);
+  
 
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds);
@@ -144,6 +123,21 @@ export default function Inbox() {
     if (next.has(id)) next.delete(id); else next.add(id);
     setStarredIds(next);
   };
+  const selectAllOnPage = () => {
+    const next = new Set(selectedIds);
+    for (const e of paged) {
+      next.add(e.id);
+    }
+    setSelectedIds(next);
+  };
+  const unselectAllOnPage = () => {
+    const next = new Set(selectedIds);
+    for (const e of paged) {
+      next.delete(e.id);
+    }
+    setSelectedIds(next);
+  };
+  const isAllSelectedOnPage = paged.every((e) => selectedIds.has(e.id));
 
   const markRead = (read: boolean) => {
     const next = new Set(readIds);
@@ -153,6 +147,8 @@ export default function Inbox() {
     setReadIds(next);
     setSelectedIds(new Set());
   };
+  const selectedReadCount = Array.from(selectedIds).filter((id) => readIds.has(id)).length;
+  const shouldMarkRead = selectedReadCount < (selectedIds.size - selectedReadCount);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -285,22 +281,25 @@ export default function Inbox() {
                       placeholder="Search"
                     />
                   </div>
-                  <button
-                    onClick={() => markRead(true)}
-                    disabled={selectedIds.size === 0}
-                    className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs disabled:opacity-50"
-                    title="Mark as read"
-                  >
-                    READ
-                  </button>
-                  <button
-                    onClick={() => markRead(false)}
-                    disabled={selectedIds.size === 0}
-                    className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs disabled:opacity-50"
-                    title="Mark as unread"
-                  >
-                    UNREAD
-                  </button>
+                  {selectedIds.size > 0 && (
+                    <button
+                      onClick={() => markRead(shouldMarkRead)}
+                      className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs"
+                      title={shouldMarkRead ? 'Mark selected as read' : 'Mark selected as unread'}
+                    >
+                      {shouldMarkRead ? 'MARK READ' : 'MARK UNREAD'}
+                    </button>
+                  )}
+                  {selectedIds.size > 0 && (
+                    <button
+                      onClick={isAllSelectedOnPage ? unselectAllOnPage : selectAllOnPage}
+                      disabled={false}
+                      className="px-3 py-2 border-2 border-green-500 text-green-500 rounded font-mono text-xs disabled:opacity-50"
+                      title={isAllSelectedOnPage ? 'Unselect all on page' : 'Select all on page'}
+                    >
+                      {isAllSelectedOnPage ? 'UNSELECT ALL' : 'SELECT ALL'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -359,16 +358,7 @@ export default function Inbox() {
                               UNREAD
                             </span>
                           )}
-                          {!selectedIds.has(email.id) && ((metaById[email.id]?.hasHtml) || email.hasHtml) && (
-                            <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
-                              HTML
-                            </span>
-                          )}
-                          {!selectedIds.has(email.id) && ((metaById[email.id]?.attachments ?? email.attachments) > 0) && (
-                            <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-mono rounded border border-green-700">
-                              ATTACHMENT
-                            </span>
-                          )}
+                          
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleSelect(email.id); }}
                             className={`h-6 w-6 flex items-center justify-center rounded border ${selectedIds.has(email.id) ? 'border-green-500 bg-green-900/30' : 'border-green-700 bg-black'} hover:bg-green-900/30`}
