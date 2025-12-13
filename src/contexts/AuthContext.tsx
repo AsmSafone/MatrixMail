@@ -1,7 +1,6 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { AuthContext } from './useAuth';
-
-const CORS_PREFIX = 'https://cors.safothebot.workers.dev';
+import { BACKEND_BASE } from '../config';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState<string | null>(null);
@@ -23,7 +22,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (emailAddress: string, password: string) => {
-    const resp = await fetch(`${CORS_PREFIX}/login`, {
+    const base = BACKEND_BASE;
+    if (!base) throw new Error('Backend URL not configured');
+    const url = `${base}/api/login`;
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: emailAddress, password }),
@@ -54,9 +56,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('access_token');
     } catch { /* ignore */ }
   };
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const base = BACKEND_BASE;
+    if (!base) throw new Error('Backend URL not configured');
+    const token = String(localStorage.getItem('access_token') || '');
+    const url = `${base}/api/change-password?token=${encodeURIComponent(token)}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    const data = await resp.json().catch(() => ({} as unknown));
+    if (!resp.ok) {
+      const msg = (data as { error?: string })?.error || 'Failed to change password';
+      throw new Error(msg);
+    }
+  };
 
   return (
-    <AuthContext.Provider value={{ name, email, loading, login, logout }}>
+    <AuthContext.Provider value={{ name, email, loading, login, logout, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

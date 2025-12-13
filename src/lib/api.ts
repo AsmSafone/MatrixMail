@@ -1,5 +1,4 @@
-const API_BASE = 'https://api.resend.com';
-const CORS_PREFIX = 'https://cors.safothebot.workers.dev/';
+import { API_URL } from '../config';
 const MIN_INTERVAL_MS = 600;
 
 let lastFetchAt = 0;
@@ -13,12 +12,13 @@ async function waitForRate() {
 
 function apiFetch(path: string, init?: RequestInit) {
   const headers = {
-    // Authorization: `Bearer ${RESEND_API_KEY}`,
     'Content-Type': (init?.method === 'POST' ? 'application/json' : undefined) as string | undefined,
     ...(init?.headers || {}),
   } as Record<string, string>;
   Object.keys(headers).forEach((k) => headers[k] === undefined && delete headers[k]);
-  const url = CORS_PREFIX + API_BASE + path;
+  if (!API_URL) throw new Error('Backend API URL is not configured');
+  const token = String(localStorage.getItem('access_token') || '');
+  const url = API_URL + path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
   const exec = async () => {
     await waitForRate();
     const resp = await fetch(url, { ...init, headers });
@@ -101,7 +101,7 @@ export interface AttachmentMeta {
 export async function fetchEmails(): Promise<Email[]> {
   const results: Email[] = [];
 
-  const listSentResp = await apiFetch('/emails?limit=50');
+  const listSentResp = await apiFetch('/sent?limit=50');
   if (!listSentResp.ok) throw new Error('Failed to list sent emails');
   const listSentJson = await listSentResp.json();
   const sentItems = extractArray<{ id: string; created_at?: string; from?: string; to?: string[]; subject?: string }>(listSentJson);
@@ -126,7 +126,7 @@ export async function fetchEmails(): Promise<Email[]> {
     });
   }
 
-  const recvListResp = await apiFetch('/emails/receiving?limit=50');
+  const recvListResp = await apiFetch('/received?limit=50');
   if (!recvListResp.ok) throw new Error('Failed to list received emails');
   const recvListJson = await recvListResp.json();
   const recvItems = extractArray<{ id: string; created_at?: string; from?: string; to?: string[]; subject?: string }>(recvListJson);
@@ -163,7 +163,7 @@ export async function fetchEmails(): Promise<Email[]> {
 }
 
 export async function fetchEmailHtml(_email: string, id: string, type: 'received' | 'sent'): Promise<{ html: string; text: string }> {
-  const url = type === 'sent' ? `/emails/${id}` : `/emails/receiving/${id}`;
+  const url = type === 'sent' ? `/sent/${id}` : `/received/${id}`;
   const resp = await apiFetch(url);
   if (!resp.ok) throw new Error('Failed to retrieve email');
   const j = await resp.json();
@@ -175,7 +175,7 @@ export async function fetchEmailHtml(_email: string, id: string, type: 'received
 }
 
 export async function fetchAttachments(id: string, type: 'received' | 'sent'): Promise<AttachmentMeta[]> {
-  const url = type === 'received' ? `/emails/receiving/${id}/attachments` : `/emails/${id}/attachments`;
+  const url = type === 'received' ? `/received/${id}/attachments` : `/sent/${id}/attachments`;
   const resp = await apiFetch(url);
   if (!resp.ok) throw new Error('Failed to list attachments');
   const j = await resp.json();
@@ -209,7 +209,7 @@ export async function sendEmail(emailData: SendEmailRequest): Promise<void> {
     text: emailData.message,
     attachments: emailData.attachments?.map((a) => ({ filename: a.filename, content: a.data, contentType: a.contentType })),
   } as Record<string, unknown>;
-  const resp = await apiFetch('/emails', { method: 'POST', body: JSON.stringify(payload) });
+  const resp = await apiFetch('/send', { method: 'POST', body: JSON.stringify(payload) });
   if (!resp.ok) {
     const j = await resp.json().catch(() => ({}));
     const msg = ((j as unknown) as { error?: { message?: string } }).error?.message || 'Failed to send email';

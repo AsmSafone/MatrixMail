@@ -7,11 +7,16 @@ import EmailViewer from './EmailViewer';
 import Compose from './Compose';
 
 export default function Inbox() {
-  const { email: userEmail, logout } = useAuth();
+  const { email: userEmail, logout, changePassword } = useAuth();
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [showCompose, setShowCompose] = useState(false);
+  const [showChangePass, setShowChangePass] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [changing, setChanging] = useState(false);
+  const [changeError, setChangeError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'outbox' | 'starred'>('inbox');
   const [query, setQuery] = useState('');
@@ -207,10 +212,16 @@ export default function Inbox() {
                 </button>
                 <button
                   onClick={() => setShowCompose(true)}
-                  className="px-4 py-2 bg-green-500 text-black font-mono font-bold rounded hover:bg-green-400 transition-all flex items-center space-x-2"
+                  className="px-4 py-2 bg-green-500 text.black font-mono font-bold rounded hover:bg-green-400 transition-all flex items-center space-x-2"
                 >
                   <Send className="w-4 h-4" />
                   <span>COMPOSE</span>
+                </button>
+                <button
+                  onClick={() => { setShowChangePass(true); setCurrentPass(''); setNewPass(''); setChangeError(''); }}
+                  className="px-4 py-2 border border-green-500 text-green-500 rounded font-mono hover:bg-green-500/10 transition-all"
+                >
+                  CHANGE PASS
                 </button>
                 <button
                   onClick={logout}
@@ -404,6 +415,67 @@ export default function Inbox() {
           </div>
         </main>
       </div>
+      {showChangePass && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-sm bg-black border-2 border-green-500 rounded-lg p-6 shadow-[0_0_30px_rgba(0,255,0,0.3)]">
+            <h2 className="text-green-500 font-mono font-bold text-lg mb-4">CHANGE PASSWORD</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-green-500 font-mono text-xs mb-2">CURRENT PASSWORD</label>
+                <input
+                  type="password"
+                  value={currentPass}
+                  onChange={(e) => setCurrentPass(e.target.value)}
+                  className="w-full bg-black border-2 border-green-500 text-green-400 px-3 py-2 rounded font-mono focus:outline-none focus:border-green-300"
+                  disabled={changing}
+                />
+              </div>
+              <div>
+                <label className="block text-green-500 font-mono text-xs mb-2">NEW PASSWORD</label>
+                <input
+                  type="password"
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  className="w-full bg-black border-2 border-green-500 text-green-400 px-3 py-2 rounded font-mono focus:outline-none focus:border-green-300"
+                  disabled={changing}
+                />
+              </div>
+              {changeError && (
+                <div className="bg-red-900/20 border border-red-500 text-red-400 px-3 py-2 rounded font-mono text-xs">
+                  {changeError}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => { if (changing) return; setShowChangePass(false); setChangeError(''); }}
+                  className="px-3 py-2 border-2 border-green-700 text-green-500 rounded font-mono hover:bg-green-900/30"
+                  disabled={changing}
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={async () => {
+                    setChangeError('');
+                    setChanging(true);
+                    try {
+                      await changePassword(currentPass, newPass);
+                      setShowChangePass(false);
+                    } catch (err) {
+                      setChangeError((err as Error)?.message || 'Failed to change password');
+                    } finally {
+                      setChanging(false);
+                    }
+                  }}
+                  className="px-3 py-2 bg-green-500 text-black rounded font-mono hover:bg-green-400 disabled:opacity-50"
+                  disabled={changing || !currentPass || !newPass}
+                >
+                  {changing ? 'UPDATING...' : 'UPDATE'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="fixed bottom-4 left-0 right-0 text-center z-10 hidden sm:block">
         <p className="text-green-600 text-xs font-mono">© {new Date().getFullYear()} Safone, All Rights Reserved.</p>
       </div>

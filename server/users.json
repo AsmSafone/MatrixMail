@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Admin",
+    "email": "admin@example.com",
+    "password": "AdminPassword123!"
+  },
+  {
+    "name": "Support Team",
+    "email": "support@example.com",
+    "password": "SupportPassword123!"
+  },
+  {
+    "name": "Event Updates",
+    "email": "events@example.com",
+    "password": "EventsPassword123!"
+  },
+  {
+    "name": "Demo User",
+    "email": "demo@example.com",
+    "password": "DemoPassword123!"
+  }
+]
