@@ -18,11 +18,35 @@ function apiFetch(path: string, init?: RequestInit) {
   Object.keys(headers).forEach((k) => headers[k] === undefined && delete headers[k]);
   if (!API_URL) throw new Error('Backend API URL is not configured');
   const token = String(localStorage.getItem('access_token') || '');
+  // proactively check expiration of JWT. tokens are of form header.payload.signature
+  try {
+    const parts = token.split('.');
+    if (parts.length >= 2) {
+      const payload = JSON.parse(atob(parts[1]));
+      if (payload && typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) {
+        // token already expired
+        try { localStorage.removeItem('access_token'); } catch { /* ignore */ }
+        window.dispatchEvent(new Event('auth-expired'));
+        // short-circuit with 401-like response so callers can handle
+        return Promise.resolve(new Response(null, { status: 401 }));
+      }
+    }
+  } catch {
+    // ignore malformed token
+  }
   const url = API_URL + path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
   const exec = async () => {
     await waitForRate();
     const resp = await fetch(url, { ...init, headers });
     lastFetchAt = Date.now();
+    // if the backend indicates authorization failure, broadcast so
+    // that the app can log the user out immediately
+    if (resp.status === 401 || resp.status === 403) {
+      try {
+        localStorage.removeItem('access_token');
+      } catch { /* ignore */ }
+      window.dispatchEvent(new Event('auth-expired'));
+    }
     if (resp.status === 429) {
       let attempts = 2;
       let current = resp;

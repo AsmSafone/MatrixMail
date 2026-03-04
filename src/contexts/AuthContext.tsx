@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, useRef, ReactNode } from 'react';
 import { AuthContext } from './useAuth';
 import { BACKEND_BASE } from '../config';
 
@@ -6,8 +6,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  // timer id used for automatic logout when token expires
+  const expireTimer = useRef<number | null>(null);
+
+  // helpers ---------------------------------------------------------------
+  const getTokenExpiryTime = (token: string): number | null => {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payload = JSON.parse(atob(parts[1]));
+      if (typeof payload.exp === 'number') {
+        return payload.exp * 1000;
+      }
+    } catch {
+      // ignore malformed token
+    }
+    return null;
+  };
+
+  const scheduleExpiry = (expiryMs: number) => {
+    if (expireTimer.current !== null) {
+      window.clearTimeout(expireTimer.current);
+    }
+    const delay = expiryMs - Date.now();
+    if (delay <= 0) {
+      window.dispatchEvent(new Event('auth-expired'));
+      return;
+    }
+    expireTimer.current = window.setTimeout(() => {
+      window.dispatchEvent(new Event('auth-expired'));
+    }, delay + 1000);
+  };
 
   useEffect(() => {
+    // if there is a token stored, schedule a logout when it expires
+    const token = String(localStorage.getItem('access_token') || '');
+    if (token) {
+      const exp = getTokenExpiryTime(token);
+      if (exp && exp <= Date.now()) {
+        // already expired
+        logout().catch(() => {});
+      } else if (exp) {
+        scheduleExpiry(exp);
+      }
+    }
+
     try {
       const raw = localStorage.getItem('matrix_user');
       if (raw) {
@@ -46,11 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('access_token', String(access));
       localStorage.setItem('matrix_user', JSON.stringify({ name: user?.name || null, email: user.email }));
     } catch { /* ignore */ }
+    // when we successfully login schedule automatic logout
+    const expires = getTokenExpiryTime(String(access));
+    if (expires) scheduleExpiry(expires);
   };
 
   const logout = async () => {
     setEmail(null);
     setName(null);
+    if (expireTimer.current !== null) {
+      window.clearTimeout(expireTimer.current);
+      expireTimer.current = null;
+    }
     try {
       localStorage.removeItem('matrix_user');
       localStorage.removeItem('access_token');
@@ -74,6 +124,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(msg);
     }
   };
+
+  // listen for broadcasts from the API layer indicating that the token was rejected
+  useEffect(() => {
+    const handler = () => {
+      // reuse our existing logout implementation
+      logout().catch(() => {});
+      // ensure the UI returns to the login screen; reload will
+      // also clear any stale state in other components
+      try {
+        window.location.replace('/');
+      } catch {
+        window.location.href = '/';
+      }
+    };
+    window.addEventListener('auth-expired', handler);
+    return () => {
+      window.removeEventListener('auth-expired', handler);
+    };
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ name, email, loading, login, logout, changePassword }}>
